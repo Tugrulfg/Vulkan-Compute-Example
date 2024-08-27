@@ -85,33 +85,32 @@ void createCommandBuffers(App* app){
 }
 
 void createStorageBuffer(App* app){
-    VkDeviceSize bufferSize = 256 * sizeof(float);
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &stagingBuffer, &stagingBufferMemory);
+    createBuffer(app->compute.bufferSize1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &stagingBuffer, &stagingBufferMemory);
 
     void* data;
-    vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, app->compute.value1, (size_t) bufferSize);
+    vkMapMemory(app->device, stagingBufferMemory, 0, app->compute.bufferSize1, 0, &data);
+    memcpy(data, app->compute.value1, (size_t) app->compute.bufferSize1);
     vkUnmapMemory(app->device, stagingBufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer1, &app->compute.memory1);
+    createBuffer(app->compute.bufferSize1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer1, &app->compute.memory1);
 
-    copyBuffer(stagingBuffer, app->compute.buffer1, bufferSize, app->device, app->commandPool, app->queue);
+    copyBuffer(stagingBuffer, app->compute.buffer1, app->compute.bufferSize1, app->device, app->commandPool, app->queue);
 
 
-    vkMapMemory(app->device, stagingBufferMemory, 0, bufferSize, 0, &data);
-    memcpy(data, app->compute.value2, (size_t) bufferSize);
+    vkMapMemory(app->device, stagingBufferMemory, 0, app->compute.bufferSize2, 0, &data);
+    memcpy(data, app->compute.value2, (size_t) app->compute.bufferSize2);
     vkUnmapMemory(app->device, stagingBufferMemory);
 
-    createBuffer(bufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer2, &app->compute.memory2);
+    createBuffer(app->compute.bufferSize2, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer2, &app->compute.memory2);
 
-    copyBuffer(stagingBuffer, app->compute.buffer2, bufferSize, app->device, app->commandPool, app->queue);
+    copyBuffer(stagingBuffer, app->compute.buffer2, app->compute.bufferSize2, app->device, app->commandPool, app->queue);
 
 
     // Create the result buffer
-    createBuffer(bufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &app->compute.resBuffer, &app->compute.resMemory);
+    createBuffer(app->compute.resBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &app->compute.resBuffer, &app->compute.resMemory);
 
     vkDestroyBuffer(app->device, stagingBuffer, NULL);
     vkFreeMemory(app->device, stagingBufferMemory, NULL);
@@ -269,12 +268,15 @@ void recordCommandBuffer(App* app){
     vkCmdDispatch(app->commandBuffer, (app->compute.arraySize + 255) / 256, 1, 1);
 
     vkEndCommandBuffer(app->commandBuffer);
+}
 
+void submitCommandBuffer(App* app){
+    VkSubmitInfo submitInfo = {
+        .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+        .commandBufferCount = 1,
+        .pCommandBuffers = &app->commandBuffer,
 
-    VkSubmitInfo submitInfo = {};
-    submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    submitInfo.commandBufferCount = 1;
-    submitInfo.pCommandBuffers = &app->commandBuffer;
+    };
 
     vkQueueSubmit(app->queue, 1, &submitInfo, VK_NULL_HANDLE);
     vkQueueWaitIdle(app->queue);
@@ -282,9 +284,9 @@ void recordCommandBuffer(App* app){
 
 void retrieveData(App* app){
     void* data;
-    EXPECT(vkMapMemory(app->device, app->compute.resMemory, 0, 256*sizeof(float), 0, &data), "Couldn't map memory")
+    EXPECT(vkMapMemory(app->device, app->compute.resMemory, 0, app->compute.resBufferSize, 0, &data), "Couldn't map memory")
 
-    for(int i = 0; i < 256; i++)
+    for(int i = 0; i < app->compute.resBufferSize / (float)sizeof(float); i++)
         app->compute.res[i] = ((float*)data)[i];
 
     // Process the data

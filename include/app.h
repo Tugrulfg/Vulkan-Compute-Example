@@ -28,6 +28,8 @@ void createDescriptorSets(App* app);
 
 void recordCommandBuffer(App* app);
 
+void submitCommandBuffer(App* app);
+
 void retrieveData(App* app);
 
 void createBuffer(VkDeviceSize size, VkBufferUsageFlags usage, VkMemoryPropertyFlags properties, VkDevice device, VkPhysicalDevice pDevice, VkBuffer* buffer, VkDeviceMemory* bufferMemory);

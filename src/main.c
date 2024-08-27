@@ -8,7 +8,10 @@ int main() {
             .apiVersion = VK_API_VERSION_1_3,
             .compute = {
                 .computeShaderPath = "../res/shaders/SimpleExample.comp.spv",
-                .arraySize = 256
+                .arraySize = 256,
+                .bufferSize1 = 256 * sizeof(float),
+                .bufferSize2 = 256 * sizeof(float),
+                .resBufferSize = 256 * sizeof(float),
             }
     };
 
@@ -40,6 +43,8 @@ int main() {
     createDescriptorSets(&app);
     printf("Record command buffer\n");
     recordCommandBuffer(&app);
+    printf("Submit command buffer\n");
+    submitCommandBuffer(&app);
     printf("Retrieve data\n");
     retrieveData(&app);
 
