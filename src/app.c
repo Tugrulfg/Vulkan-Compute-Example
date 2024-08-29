@@ -88,26 +88,16 @@ void createStorageBuffer(App* app){
 
     VkBuffer stagingBuffer;
     VkDeviceMemory stagingBufferMemory;
-    createBuffer(app->compute.bufferSize1, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &stagingBuffer, &stagingBufferMemory);
+    createBuffer(app->compute.srcBufferSize, VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &stagingBuffer, &stagingBufferMemory);
 
     void* data;
-    vkMapMemory(app->device, stagingBufferMemory, 0, app->compute.bufferSize1, 0, &data);
-    memcpy(data, app->compute.value1, (size_t) app->compute.bufferSize1);
+    vkMapMemory(app->device, stagingBufferMemory, 0, app->compute.srcBufferSize, 0, &data);
+    memcpy(data, app->compute.value, (size_t) app->compute.srcBufferSize);
     vkUnmapMemory(app->device, stagingBufferMemory);
 
-    createBuffer(app->compute.bufferSize1, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer1, &app->compute.memory1);
+    createBuffer(app->compute.srcBufferSize, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.srcBuffer, &app->compute.srcMemory);
 
-    copyBuffer(stagingBuffer, app->compute.buffer1, app->compute.bufferSize1, app->device, app->commandPool, app->queue);
-
-
-    vkMapMemory(app->device, stagingBufferMemory, 0, app->compute.bufferSize2, 0, &data);
-    memcpy(data, app->compute.value2, (size_t) app->compute.bufferSize2);
-    vkUnmapMemory(app->device, stagingBufferMemory);
-
-    createBuffer(app->compute.bufferSize2, VK_BUFFER_USAGE_TRANSFER_DST_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, app->device, app->physicalDevice, &app->compute.buffer2, &app->compute.memory2);
-
-    copyBuffer(stagingBuffer, app->compute.buffer2, app->compute.bufferSize2, app->device, app->commandPool, app->queue);
-
+    copyBuffer(stagingBuffer, app->compute.srcBuffer, app->compute.srcBufferSize, app->device, app->commandPool, app->queue);
 
     // Create the result buffer
     createBuffer(app->compute.resBufferSize, VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT, VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, app->device, app->physicalDevice, &app->compute.resBuffer, &app->compute.resMemory);
@@ -129,18 +119,12 @@ void createDescriptorSetLayout(App* app){
             .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
             .descriptorCount = 1,
             .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
-        },
-        {
-            .binding = 2,
-            .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-            .descriptorCount = 1,
-            .stageFlags = VK_SHADER_STAGE_COMPUTE_BIT,
         }
     };
 
     VkDescriptorSetLayoutCreateInfo layoutInfo = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
-        .bindingCount = 3,
+        .bindingCount = 2,
         .pBindings = layoutBindings,
     };
 
@@ -178,7 +162,7 @@ void createComputePipeline(App* app){
 void createDescriptorPool(App* app){
     VkDescriptorPoolSize poolSize = {
         .type = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-        .descriptorCount = (uint32_t)3,
+        .descriptorCount = (uint32_t)2,
     };
 
     VkDescriptorPoolCreateInfo poolInfo = {
@@ -202,14 +186,8 @@ void createDescriptorSets(App* app){
     
     EXPECT(vkAllocateDescriptorSets(app->device, &allocInfo, &app->descriptorSet), "Couldn't allocate descriptor sets")
 
-        VkDescriptorBufferInfo bufferInfo1 = {
-            .buffer = app->compute.buffer1,
-            .offset = 0,
-            .range = VK_WHOLE_SIZE,
-        };
-
-        VkDescriptorBufferInfo bufferInfo2 = {
-            .buffer = app->compute.buffer2,
+        VkDescriptorBufferInfo bufferInfoSrc = {
+            .buffer = app->compute.srcBuffer,
             .offset = 0,
             .range = VK_WHOLE_SIZE,
         };
@@ -220,7 +198,7 @@ void createDescriptorSets(App* app){
             .range = VK_WHOLE_SIZE,
         };
 
-        VkWriteDescriptorSet descriptorWrites[3] = {
+        VkWriteDescriptorSet descriptorWrites[2] = {
             {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
                 .dstSet = app->descriptorSet,
@@ -228,7 +206,7 @@ void createDescriptorSets(App* app){
                 .dstArrayElement = 0,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .descriptorCount = 1,
-                .pBufferInfo = &bufferInfo1,
+                .pBufferInfo = &bufferInfoSrc,
             },
             {
                 .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -237,20 +215,11 @@ void createDescriptorSets(App* app){
                 .dstArrayElement = 0,
                 .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
                 .descriptorCount = 1,
-                .pBufferInfo = &bufferInfo2,
-            },
-            {
-                .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-                .dstSet = app->descriptorSet,
-                .dstBinding = 2,
-                .dstArrayElement = 0,
-                .descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-                .descriptorCount = 1,
                 .pBufferInfo = &bufferInfoRes,
             }
         };
 
-        vkUpdateDescriptorSets(app->device, 3, descriptorWrites, 0, NULL);
+        vkUpdateDescriptorSets(app->device, 2, descriptorWrites, 0, NULL);
 }
 
 void createSyncObjects(App* app){
@@ -271,7 +240,7 @@ void recordCommandBuffer(App* app){
     vkCmdBindPipeline(app->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, app->computePipeline);
     vkCmdBindDescriptorSets(app->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, app->pipelineLayout, 0, 1, &app->descriptorSet, 0, NULL);
 
-    vkCmdDispatch(app->commandBuffer, app->compute.arraySize / 256, 1, 1);
+    vkCmdDispatch(app->commandBuffer, app->compute.arraySize / 1024, 1, 1);
 
     vkEndCommandBuffer(app->commandBuffer);
 }
@@ -293,8 +262,8 @@ void retrieveData(App* app){
     EXPECT(vkMapMemory(app->device, app->compute.resMemory, 0, app->compute.resBufferSize, 0, &data), "Couldn't map memory")
     vkWaitForFences(app->device, 1, &app->fence, VK_TRUE, UINT64_MAX);
 
-    for(int i = 0; i < app->compute.resBufferSize / (float)sizeof(float); i++)
-        app->compute.res[i] = ((float*)data)[i];
+    for(int i = 0; i < app->compute.resBufferSize / (uint32_t)sizeof(uint32_t); i++)
+        app->compute.res[i] = ((uint32_t*)data)[i];
 
     // Process the data
     vkUnmapMemory(app->device, app->compute.resMemory);
@@ -374,10 +343,8 @@ void copyBuffer(VkBuffer srcBuffer, VkBuffer dstBuffer, VkDeviceSize size, VkDev
 
 void cleanup(App *app) {
 
-    vkDestroyBuffer(app->device, app->compute.buffer1, NULL);
-    vkFreeMemory(app->device, app->compute.memory1, NULL);
-    vkDestroyBuffer(app->device, app->compute.buffer2, NULL);
-    vkFreeMemory(app->device, app->compute.memory2, NULL);
+    vkDestroyBuffer(app->device, app->compute.srcBuffer, NULL);
+    vkFreeMemory(app->device, app->compute.srcMemory, NULL);
     vkDestroyBuffer(app->device, app->compute.resBuffer, NULL);
     vkFreeMemory(app->device, app->compute.resMemory, NULL);
 

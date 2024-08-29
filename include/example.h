@@ -10,19 +10,15 @@
 
 
 typedef struct {
-    VkBuffer buffer1;
-    VkDeviceMemory memory1;
-    VkDeviceSize bufferSize1;
-    VkBuffer buffer2;
-    VkDeviceMemory memory2;
-    VkDeviceSize bufferSize2;
+    VkBuffer srcBuffer;
+    VkDeviceMemory srcMemory;
+    VkDeviceSize srcBufferSize;
     VkBuffer resBuffer;
     VkDeviceMemory resMemory;
     VkDeviceSize resBufferSize;
 
-    float value1[256];
-    float value2[256];
-    float res[256];
+    uint32_t value[2560];
+    uint32_t res[2560];
     size_t arraySize;
     const char *computeShaderPath;
 } Compute;
