@@ -48,6 +48,8 @@ typedef struct {
     VkCommandPool commandPool;
     VkCommandBuffer commandBuffer;
 
+    VkFence fence;
+
     Compute compute;
 } App;
 

@@ -26,6 +26,8 @@ void createDescriptorPool(App* app);
 
 void createDescriptorSets(App* app);
 
+void createSyncObjects(App* app);
+
 void recordCommandBuffer(App* app);
 
 void submitCommandBuffer(App* app);

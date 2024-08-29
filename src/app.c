@@ -165,7 +165,6 @@ void createComputePipeline(App* app){
         .pSetLayouts = &app->descriptorSetLayout,
     }, NULL, &app->pipelineLayout), "Couldn't create pipeline layout")
 
-
     EXPECT(vkCreateComputePipelines(app->device, NULL, 1, &(VkComputePipelineCreateInfo) {
         .sType = VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
         .layout = app->pipelineLayout,
@@ -254,6 +253,13 @@ void createDescriptorSets(App* app){
         vkUpdateDescriptorSets(app->device, 3, descriptorWrites, 0, NULL);
 }
 
+void createSyncObjects(App* app){
+    VkFenceCreateInfo fenceInfo = {
+        .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+    };
+    vkCreateFence(app->device, &fenceInfo, NULL, &app->fence);
+}
+
 void recordCommandBuffer(App* app){
     VkCommandBufferBeginInfo beginInfo = {
         .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -265,7 +271,7 @@ void recordCommandBuffer(App* app){
     vkCmdBindPipeline(app->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, app->computePipeline);
     vkCmdBindDescriptorSets(app->commandBuffer, VK_PIPELINE_BIND_POINT_COMPUTE, app->pipelineLayout, 0, 1, &app->descriptorSet, 0, NULL);
 
-    vkCmdDispatch(app->commandBuffer, (app->compute.arraySize + 255) / 256, 1, 1);
+    vkCmdDispatch(app->commandBuffer, app->compute.arraySize / 256, 1, 1);
 
     vkEndCommandBuffer(app->commandBuffer);
 }
@@ -278,13 +284,14 @@ void submitCommandBuffer(App* app){
 
     };
 
-    vkQueueSubmit(app->queue, 1, &submitInfo, VK_NULL_HANDLE);
-    vkQueueWaitIdle(app->queue);
+    vkQueueSubmit(app->queue, 1, &submitInfo, app->fence);
 }
 
 void retrieveData(App* app){
     void* data;
+
     EXPECT(vkMapMemory(app->device, app->compute.resMemory, 0, app->compute.resBufferSize, 0, &data), "Couldn't map memory")
+    vkWaitForFences(app->device, 1, &app->fence, VK_TRUE, UINT64_MAX);
 
     for(int i = 0; i < app->compute.resBufferSize / (float)sizeof(float); i++)
         app->compute.res[i] = ((float*)data)[i];
@@ -383,6 +390,8 @@ void cleanup(App *app) {
     // Destroy command pool
     vkFreeCommandBuffers(app->device, app->commandPool, 1, &app->commandBuffer);
     vkDestroyCommandPool(app->device, app->commandPool, NULL);
+
+    vkDestroyFence(app->device, app->fence, NULL);
 
     // Destroy logical device
     vkDestroyDevice(app->device, NULL);
